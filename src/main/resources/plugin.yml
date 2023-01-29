@@ -1,0 +1,9 @@
+name: SurvivalOnigo
+main: dev.mr3n.survivalonigo.SurvivalOnigo
+version: 1.0
+commands:
+  survivalonigo:
+    description: サバイバルおにごっこのコマンドです。
+    aliases:
+      - onigo
+      - so
