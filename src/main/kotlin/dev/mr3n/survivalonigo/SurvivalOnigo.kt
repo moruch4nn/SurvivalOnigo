@@ -6,6 +6,7 @@ import net.md_5.bungee.api.ChatColor
 import net.md_5.bungee.api.ChatMessageType
 import net.md_5.bungee.api.chat.TextComponent
 import org.bukkit.Bukkit
+import org.bukkit.GameMode
 import org.bukkit.Location
 import org.bukkit.World
 import org.bukkit.command.Command
@@ -24,7 +25,10 @@ class SurvivalOnigo: JavaPlugin() {
 
     private var task: BukkitTask? = null
 
+    private var notify = false
+
     override fun onEnable() {
+        this.dataFolder.mkdirs()
         this.runTaskTimer(1L,1L) {
             Bukkit.getOnlinePlayers().forEach { player ->
                 val targetLocation = targetLocation[player.world]?:return@forEach
@@ -51,6 +55,14 @@ class SurvivalOnigo: JavaPlugin() {
                 player.spigot().sendMessage(ChatMessageType.ACTION_BAR,*TextComponent.fromLegacyText(actionBar))
             }
         }
+        this.runTaskTimer(20,20) {
+            if(this.target == null || this.task == null) { return@runTaskTimer }
+            Bukkit.getOnlinePlayers().forEach { player ->
+                if(player.gameMode == GameMode.SPECTATOR) { return@forEach }
+                val location = player.location
+                this.dataFolder.resolve("${player.name}.text").appendText("${location.blockX} ${location.blockY} ${location.blockZ} ${location.world?.name}${System.lineSeparator()}")
+            }
+        }
     }
 
     private fun refreshTask(rate: Int) {
@@ -58,6 +70,7 @@ class SurvivalOnigo: JavaPlugin() {
         this.task = this.runTaskTimer(rate * 20L, rate * 20L) {
             val target = target?:return@runTaskTimer
             targetLocation[target.world] = target.location
+            if(this.notify) { target.sendMessage("${ChatColor.RED}位置情報が更新されました。") }
         }
     }
 
@@ -89,6 +102,19 @@ class SurvivalOnigo: JavaPlugin() {
                                 }
                             }
                         }
+                        "notify" -> {
+                            when(args.getOrNull(1)) {
+                                "set" -> {
+                                    this.notify = args.getOrNull(2)?.toBooleanStrictOrNull()?:throw IllegalArgumentException("/survivalonigo notify set <true/false>")
+                                }
+                            }
+                        }
+                        "end" -> {
+                            this.target = null
+                            this.task?.cancel()
+                            this.targetLocation.clear()
+
+                        }
                     }
                 }
             }
@@ -101,7 +127,7 @@ class SurvivalOnigo: JavaPlugin() {
     override fun onTabComplete(sender: CommandSender, command: Command, alias: String, args: Array<out String>): MutableList<String>? {
         when(args.size) {
             1 -> {
-                return listOf("target","refresh").filter { it.startsWith(args[1]) }.toMutableList()
+                return listOf("target","refresh","notify","end").filter { it.startsWith(args[0]) }.toMutableList()
             }
             2 -> {
                 return listOf("set").filter { it.startsWith(args[1]) }.toMutableList()
